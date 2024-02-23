@@ -1,0 +1,120 @@
+---
+title: "Eredivisie"
+output: html_document
+author: "René Brinkhuis"
+date: "2024-02-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, out.height = "250px", fig.align='left', echo=FALSE}
+knitr::include_graphics("../Afbeeldingen/eredivisie.png")
+```
+
+## Packages
+
+### tidyverse
+
+In dit notebook worden packages gebruikt uit het 'tidyversium'; tidyverse packages.
+
+> _R packages for data science_  
+> The tidyverse is an opinionated collection of R packages designed for data science.  
+> All packages share an underlying design philosophy, grammar, and data structures.
+
+Meer informatie over Tidyverse is te vinden op <https://www.tidyverse.org>.
+
+Installeer tidyverse:
+`install.packages("tidyverse")`
+
+### readxl
+
+Ook het package `readxl` is nodig voor het het inlezen van Excel bestanden.
+
+Installeer readxl:
+`install.packages("readxl")`
+
+### ggrepel
+Voor het plotten van labels op een nette manier is het package `ggrepel` nodig:  
+`install.packages("ggrepel")`
+
+### Load packages
+
+```{r load_packages}
+library(tidyverse)
+library(readxl)
+library(ggrepel)
+```
+
+## Inlezen data
+Lees het eerste tabblad van de Excel file `eredivsie.xlsx` in.
+
+```{r read_excel}
+# read first sheet
+eredivisie <- read_excel("../Brondata/eredivisie.xlsx", skip = 3)
+```
+
+Toon de ingelezen data.
+```{r punten}
+eredivisie
+```
+
+## Toevoegen kolom
+Voeg een kolom `Totaal` toe waarin de waarden van `Thuis` en `Uit` worden opgeteld.
+
+```{r totaal}
+eredivisie <- read_excel("../Brondata/eredivisie.xlsx", skip = 3) %>%
+  mutate(Totaal = Thuis + Uit)
+```
+
+## Join sheet
+Voeg de kolom `Begroting` toe uit het tabblad `Munten` door middel van een `full_join`.  
+Hernoem de kolom `Begroting (miljoen euro)` naar `Budget` en vermenigvuldig deze kolom met 1,000,000.
+
+```{r begroting}
+eredivisie <- read_excel("../Brondata/eredivisie.xlsx", skip = 3) %>%
+  mutate(Totaal = Thuis + Uit) %>%
+  full_join(read_excel("../Brondata/eredivisie.xlsx", sheet = "Munten", skip = 3), by = "Club") %>%
+  rename(Budget = "Begroting (miljoen euro)") %>%
+  mutate(Budget = Budget * 1000000)
+```
+
+## Toevoegen kolom
+Voeg een kolom toe met de `Kosten per punt` en sorteer deze van laag naar hoog.
+```{r kosten_per_punt}
+eredivisie <- read_excel("../Brondata/eredivisie.xlsx", skip = 3) %>%
+  mutate(Totaal = Thuis + Uit) %>%
+  full_join(read_excel("../Brondata/eredivisie.xlsx", sheet = "Munten", skip = 3), by = "Club") %>%
+  rename(Budget = "Begroting (miljoen euro)") %>%
+  mutate(Budget = Budget * 1000000) %>%
+  mutate(Puntkosten = Budget / Totaal) %>%
+  arrange(Puntkosten)
+```
+
+## Toon data
+
+```{r summary_punten}
+# Top 5 met laagste kosten per punt
+eredivisie[1:5, ]
+```
+
+```{r thuis_uit, echo=TRUE}
+ggplot(eredivisie, aes(x = Thuis, y = Uit, label = Club)) +
+  geom_point(color = "royalblue", shape = 1, size = 3) +
+  geom_text_repel() +
+  geom_smooth(method = "lm") +
+  xlab("Punten thuis") +
+  ylab("Punten uit") +
+  theme_classic()
+```
+
+```{r ggplot_budget_punten, echo=TRUE}
+ggplot(filter(eredivisie, Budget < 75000000), aes(x = Budget, y = Totaal, label = Club)) +
+  geom_point(color = "royalblue", shape = 1, size = 3) +
+  geom_smooth(method = "lm") +
+  geom_text_repel() +
+  xlab("Budget") +
+  ylab("Punten") +
+  theme_classic()
+```
